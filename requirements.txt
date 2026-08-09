@@ -1,0 +1,8 @@
+streamlit
+tensorflow
+opencv-python-headless==4.11.0.86
+numpy
+h5py
+Pillow
+scikit-learn
+joblib
