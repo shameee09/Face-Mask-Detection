@@ -10,7 +10,7 @@ from tensorflow.keras.models import load_model
 
 st.set_page_config(
     page_title="Face Mask Compliance Screening",
-    page_icon="",
+    page_icon="😷",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -24,8 +24,6 @@ st.markdown(
     """
     <style>
 
-    /* ---------- APPLICATION ---------- */
-
     .stApp {
         background-color: #0b1220;
     }
@@ -35,9 +33,6 @@ st.markdown(
         padding-top: 4rem;
         padding-bottom: 3rem;
     }
-
-
-    /* ---------- TITLE ---------- */
 
     h1 {
         color: #f8fafc !important;
@@ -49,15 +44,9 @@ st.markdown(
         color: #e2e8f0 !important;
     }
 
-
-    /* ---------- NORMAL TEXT ---------- */
-
     p {
         color: #cbd5e1;
     }
-
-
-    /* ---------- METRICS ---------- */
 
     [data-testid="stMetric"] {
         background-color: #111827;
@@ -74,15 +63,9 @@ st.markdown(
         color: #f8fafc !important;
     }
 
-
-    /* ---------- CAMERA ---------- */
-
     [data-testid="stCameraInput"] {
         border-radius: 10px;
     }
-
-
-    /* ---------- FOOTER ---------- */
 
     .footer {
         color: #64748b;
@@ -103,9 +86,7 @@ st.markdown(
 # HEADER
 # ==========================================================
 
-header_left, header_right = st.columns(
-    [5, 1]
-)
+header_left, header_right = st.columns([5, 1])
 
 with header_left:
 
@@ -118,7 +99,7 @@ with header_left:
     )
 
     st.write(
-        "Camera-based screening for face-mask compliance."
+        "Camera-based and image-upload screening for face-mask compliance."
     )
 
 
@@ -141,12 +122,12 @@ st.subheader(
 )
 
 st.write(
-    "Position the person clearly within the camera frame "
-    "and capture an image for face-mask compliance assessment."
+    "Capture an image using your camera or upload a photo "
+    "for face-mask compliance assessment."
 )
 
 st.info(
-    "The captured image is processed for this assessment "
+    "The selected image is processed for this assessment "
     "and is not stored by this application."
 )
 
@@ -183,9 +164,7 @@ def load_detection_models():
 
 try:
 
-    face_net, mask_net = (
-        load_detection_models()
-    )
+    face_net, mask_net = load_detection_models()
 
 except Exception as error:
 
@@ -196,6 +175,7 @@ except Exception as error:
     with st.expander(
         "Technical details"
     ):
+
         st.code(
             str(error)
         )
@@ -204,35 +184,85 @@ except Exception as error:
 
 
 # ==========================================================
-# CAMERA SCREENING
+# IMAGE INPUT
 # ==========================================================
 
 st.subheader(
-    "Camera Screening"
+    "Select Image Source"
 )
 
 st.caption(
-    "Capture an image to begin the compliance assessment."
-)
-
-camera_image = st.camera_input(
-    "Capture screening image"
+    "Choose either camera capture or upload a photo."
 )
 
 
+# Two columns for both options
+
+camera_col, upload_col = st.columns(2)
+
+
 # ==========================================================
-# PROCESS CAPTURED IMAGE
+# CAMERA OPTION
 # ==========================================================
+
+with camera_col:
+
+    st.markdown(
+        "### 📷 Camera"
+    )
+
+    camera_image = st.camera_input(
+        "Capture screening image"
+    )
+
+
+# ==========================================================
+# UPLOAD OPTION
+# ==========================================================
+
+with upload_col:
+
+    st.markdown(
+        "### 📁 Upload Photo"
+    )
+
+    uploaded_image = st.file_uploader(
+        "Choose an image",
+        type=[
+            "jpg",
+            "jpeg",
+            "png"
+        ],
+        help="Upload a JPG, JPEG or PNG image."
+    )
+
+
+# ==========================================================
+# DETERMINE SELECTED IMAGE
+# ==========================================================
+
+selected_image = None
 
 if camera_image is not None:
+
+    selected_image = camera_image
+
+elif uploaded_image is not None:
+
+    selected_image = uploaded_image
+
+
+# ==========================================================
+# PROCESS IMAGE
+# ==========================================================
+
+if selected_image is not None:
 
     # ------------------------------------------------------
     # READ IMAGE
     # ------------------------------------------------------
 
-    image_bytes = (
-        camera_image.getvalue()
-    )
+    image_bytes = selected_image.getvalue()
 
     image_array = np.asarray(
         bytearray(image_bytes),
@@ -244,10 +274,15 @@ if camera_image is not None:
         cv2.IMREAD_COLOR
     )
 
+
+    # ------------------------------------------------------
+    # CHECK IMAGE
+    # ------------------------------------------------------
+
     if image is None:
 
         st.error(
-            "The captured image could not be processed."
+            "The selected image could not be processed."
         )
 
         st.stop()
@@ -257,14 +292,12 @@ if camera_image is not None:
     # IMAGE DIMENSIONS
     # ------------------------------------------------------
 
-    height, width = (
-        image.shape[:2]
-    )
+    height, width = image.shape[:2]
 
 
-    # ------------------------------------------------------
+    # ======================================================
     # FACE DETECTION
-    # ------------------------------------------------------
+    # ======================================================
 
     blob = cv2.dnn.blobFromImage(
         image,
@@ -277,14 +310,12 @@ if camera_image is not None:
         blob
     )
 
-    detections = (
-        face_net.forward()
-    )
+    detections = face_net.forward()
 
 
-    # ------------------------------------------------------
+    # ======================================================
     # RESULT COUNTERS
-    # ------------------------------------------------------
+    # ======================================================
 
     face_count = 0
 
@@ -303,7 +334,11 @@ if camera_image is not None:
         detections.shape[2]
     ):
 
-        detection_confidence = (
+        # --------------------------------------------------
+        # FACE CONFIDENCE
+        # --------------------------------------------------
+
+        detection_confidence = float(
             detections[
                 0,
                 0,
@@ -313,11 +348,8 @@ if camera_image is not None:
         )
 
 
-        # --------------------------------------------------
-        # FACE CONFIDENCE
-        # --------------------------------------------------
-
         if detection_confidence < 0.5:
+
             continue
 
 
@@ -335,7 +367,8 @@ if camera_image is not None:
                 i,
                 3:7
             ]
-            * np.array(
+            *
+            np.array(
                 [
                     width,
                     height,
@@ -387,6 +420,7 @@ if camera_image is not None:
 
 
         if face.size == 0:
+
             continue
 
 
@@ -405,9 +439,7 @@ if camera_image is not None:
         )
 
         face = (
-            face.astype(
-                "float32"
-            )
+            face.astype("float32")
             / 255.0
         )
 
@@ -421,20 +453,18 @@ if camera_image is not None:
         # MASK PREDICTION
         # ==================================================
 
-        prediction = (
-            mask_net.predict(
-                face,
-                verbose=0
-            )[0]
+        prediction = mask_net.predict(
+            face,
+            verbose=0
+        )[0]
+
+
+        mask_probability = float(
+            prediction[0]
         )
 
-
-        mask_probability = (
-            float(prediction[0])
-        )
-
-        no_mask_probability = (
-            float(prediction[1])
+        no_mask_probability = float(
+            prediction[1]
         )
 
 
@@ -479,6 +509,10 @@ if camera_image is not None:
             non_compliant_count += 1
 
 
+        # --------------------------------------------------
+        # STORE RESULT
+        # --------------------------------------------------
+
         results.append(
             {
                 "status": status,
@@ -487,9 +521,9 @@ if camera_image is not None:
         )
 
 
-        # --------------------------------------------------
+        # ==================================================
         # DRAW FACE BOX
-        # --------------------------------------------------
+        # ==================================================
 
         display_text = (
             f"{label} | "
@@ -552,7 +586,7 @@ if camera_image is not None:
 
     st.image(
         result_image,
-        caption="Compliance screening result",
+        caption="Face-mask compliance screening result",
         use_container_width=True
     )
 
@@ -635,9 +669,8 @@ if camera_image is not None:
         )
 
         st.write(
-            "Please position the person clearly "
-            "within the camera frame and capture "
-            "another image."
+            "Please upload or capture another image "
+            "where the face is clearly visible."
         )
 
 
@@ -719,13 +752,14 @@ if camera_image is not None:
 
 
 # ==========================================================
-# BEFORE CAPTURE
+# BEFORE IMAGE SELECTION
 # ==========================================================
 
 else:
 
     st.info(
-        "Capture a screening image to begin the assessment."
+        "Capture an image using the camera or "
+        "upload a photo to begin the assessment."
     )
 
 
